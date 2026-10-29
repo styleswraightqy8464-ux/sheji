@@ -166,9 +166,9 @@ const autoSaveKey = 'yz_layout_v2_autosave';
 // 交互状态
 let actionMode = null; // 'draw', 'move', 'resize'
 let currentResizeDir = '';
-let startX = 0, startY = 0; // 鼠标/手指起始坐标（像素）
-let startGridX = 0, startGridY = 0; // 起始网格坐标
-let tempBlockData = null; // 暂存正在操作的数据
+let startX = 0, startY = 0;
+let startGridX = 0, startGridY = 0; 
+let tempBlockData = null; // 暂存正在操作的矩形数据
 let activeBlockId = null; // 当前选中的区块
 
 const wrapper = document.getElementById('canvas-wrapper');
@@ -194,7 +194,6 @@ function init() {
     rebuildGrid();
     pushHistory(true);
     
-    // 统一绑定事件
     container.addEventListener('pointerdown', handlePointerDown);
     document.addEventListener('pointermove', handlePointerMove);
     document.addEventListener('pointerup', handlePointerUp);
@@ -207,7 +206,6 @@ function rebuildGrid() {
     
     const maxW = wrapper.clientWidth - 40;
     const maxH = wrapper.clientHeight - 40;
-    // 自适应格子大小
     cellSize = Math.min(40, Math.floor(maxW / gridCols), Math.floor(maxH / gridRows));
     if(cellSize < 10) cellSize = 10;
 
@@ -235,7 +233,6 @@ function getGridPos(e) {
 function renderBlocks() {
     document.querySelectorAll('.block').forEach(b => b.remove());
     
-    // 按 z-index 升序渲染（越大的越后面渲染，也就越在上面）
     const sortedBlocks = blocks.slice().sort((a, b) => (a.zIndex || 1) - (b.zIndex || 1));
 
     sortedBlocks.forEach(b => {
@@ -255,7 +252,6 @@ function renderBlocks() {
         
         div.innerHTML = `<div class="block-name">${b.name}</div>`;
 
-        // 添加四个角的缩放手柄
         if(b.id === activeBlockId && !b.isLocked && b.isVisible) {
             ['tl', 'tr', 'bl', 'br'].forEach(dir => {
                 const handle = document.createElement('div');
@@ -267,12 +263,11 @@ function renderBlocks() {
             });
         }
 
-        // 拖拽移动事件
         div.addEventListener('pointerdown', (e) => {
             if (b.isLocked || !b.isVisible) return;
-            if (e.target.classList.contains('handle')) return; // 点击的是手柄
+            if (e.target.classList.contains('handle')) return; 
             
-            e.stopPropagation(); // 阻止新建画图
+            e.stopPropagation();
             selectBlock(b.id);
             startMove(e, b);
         });
@@ -282,9 +277,7 @@ function renderBlocks() {
 }
 
 function renderLegend() {
-    // 按层级从大到小（从上到下）排序图例
     const sorted = blocks.slice().sort((a, b) => (b.zIndex || 1) - (a.zIndex || 1));
-    
     legendList.innerHTML = sorted.map(b => {
         const scale = parseFloat(document.getElementById('scale-m').value) || 1;
         const area = (b.w * scale) * (b.h * scale);
@@ -313,13 +306,11 @@ function renderLegend() {
 
 // ========== 交互事件流 ==========
 
-// 1. 在空白处按下：准备新建
 function handlePointerDown(e) {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
-    // 如果点到了区块或者手柄，在区块自己的事件里已经处理了
     if (e.target.closest('.block') || e.target.classList.contains('handle')) return;
 
-    selectBlock(null); // 取消选中
+    selectBlock(null);
     actionMode = 'draw';
     const pos = getGridPos(e);
     startGridX = pos.x;
@@ -329,7 +320,6 @@ function handlePointerDown(e) {
     updatePreviewBox(startGridX, startGridY, startGridX, startGridY);
 }
 
-// 2. 拖拽移动开始
 function startMove(e, b) {
     actionMode = 'move';
     activeBlockId = b.id;
@@ -338,7 +328,6 @@ function startMove(e, b) {
     startY = e.clientY;
 }
 
-// 3. 缩放开始
 function handleResizeStart(e) {
     e.stopPropagation();
     const id = e.target.dataset.id;
@@ -354,7 +343,6 @@ function handleResizeStart(e) {
     startY = e.clientY;
 }
 
-// 4. 统一处理移动
 function handlePointerMove(e) {
     if (!actionMode) return;
 
@@ -369,7 +357,6 @@ function handlePointerMove(e) {
         let newX = tempBlockData.x + dx;
         let newY = tempBlockData.y + dy;
         
-        // 边界限制
         newX = Math.max(0, Math.min(newX, gridCols - tempBlockData.w));
         newY = Math.max(0, Math.min(newY, gridRows - tempBlockData.h));
 
@@ -415,11 +402,13 @@ function handlePointerMove(e) {
     }
 }
 
-// 5. 松手结束
 function handlePointerUp(e) {
     if (!actionMode) return;
 
-    if (actionMode === 'draw') {
+    const mode = actionMode;
+    actionMode = null;
+
+    if (mode === 'draw') {
         previewBox.style.display = 'none';
         const pos = getGridPos(e);
         const x = Math.min(startGridX, pos.x);
@@ -428,13 +417,13 @@ function handlePointerUp(e) {
         const h = Math.abs(pos.y - startGridY);
 
         if (w > 0 && h > 0) {
+            // 修复点：这里不再清空 tempBlockData，而是由弹窗使用
             openEditModal(null, null, { x, y, w, h });
         }
     } 
-    else if (actionMode === 'move' || actionMode === 'resize') {
+    else if (mode === 'move' || mode === 'resize') {
         const b = blocks.find(x => x.id === activeBlockId);
         if (b && tempBlockData) {
-            // 提交修改结果
             b.x = tempBlockData.x;
             b.y = tempBlockData.y;
             b.w = tempBlockData.w;
@@ -443,11 +432,9 @@ function handlePointerUp(e) {
             renderBlocks();
             renderLegend();
         }
+        tempBlockData = null; // 仅移动或缩放结束时清理
+        currentResizeDir = '';
     }
-    
-    actionMode = null;
-    tempBlockData = null;
-    currentResizeDir = '';
 }
 
 function updatePreviewBox(x1, y1, x2, y2) {
@@ -484,7 +471,6 @@ window.moveZ = function(id, dir, e) {
     e.stopPropagation();
     const b = blocks.find(x => x.id === id);
     if(!b) return;
-    // 简单粗暴地加减层级，最终渲染时会按大小排序
     b.zIndex = (b.zIndex || 1) + dir;
     saveToHistory(); renderBlocks(); renderLegend();
 };
@@ -494,7 +480,6 @@ window.openEditModal = function(id, e, newRect = null) {
     editingBlockId = id;
     
     if (id) {
-        // 编辑已有
         const b = blocks.find(x => x.id === id);
         document.getElementById('modal-title').textContent = '编辑区块';
         document.getElementById('block-name').value = b.name;
@@ -502,21 +487,21 @@ window.openEditModal = function(id, e, newRect = null) {
         document.getElementById('block-color').value = b.color;
         document.getElementById('block-z').value = b.zIndex || 1;
     } else {
-        // 新建
         document.getElementById('modal-title').textContent = '新建区块';
         document.getElementById('block-name').value = '';
         document.getElementById('block-desc').value = '';
         document.getElementById('block-color').value = '#2563eb';
-        // 默认新图层在最上面
         const maxZ = blocks.length > 0 ? Math.max(...blocks.map(x => x.zIndex || 1)) : 0;
         document.getElementById('block-z').value = maxZ + 1;
-        tempBlockData = newRect; // 保存画出来的坐标
+        tempBlockData = newRect; 
     }
     document.getElementById('edit-modal').classList.add('show');
 };
 
 window.closeModal = function() {
     document.getElementById('edit-modal').classList.remove('show');
+    tempBlockData = null; // 取消时清空临时数据
+    editingBlockId = null;
 };
 
 window.saveBlock = function() {
@@ -527,11 +512,9 @@ window.saveBlock = function() {
     const zIndex = parseInt(document.getElementById('block-z').value) || 1;
 
     if (editingBlockId) {
-        // 更新
         const b = blocks.find(x => x.id === editingBlockId);
         if(b) { b.name = name; b.desc = desc; b.color = color; b.zIndex = zIndex; }
     } else if (tempBlockData) {
-        // 新增
         const newId = generateId();
         blocks.push({
             id: newId, name, desc, color, zIndex,
@@ -539,9 +522,11 @@ window.saveBlock = function() {
             isVisible: true, isLocked: false
         });
         activeBlockId = newId;
+        tempBlockData = null; // 保存成功后清空
     }
     
-    closeModal();
+    document.getElementById('edit-modal').classList.remove('show'); // 直接关
+    editingBlockId = null;
     saveToHistory();
     renderBlocks();
     renderLegend();
@@ -643,7 +628,7 @@ window.importJSON = function(e) {
                 document.getElementById('scale-m').value = data.scale || 1;
                 
                 activeBlockId = null;
-                historyStack = []; // 导入后清空历史
+                historyStack = []; 
                 historyIndex = -1;
                 
                 rebuildGrid();
@@ -658,7 +643,7 @@ window.importJSON = function(e) {
         }
     };
     reader.readAsText(file);
-    e.target.value = ''; // 允许重复选同一文件
+    e.target.value = '';
 }
 
 window.clearAll = function() {
