@@ -3,11 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>驿站平面布局设计</title>
-<!-- 引入 html2canvas 用于导出图片 -->
+<title>驿站平面布局设计 V2</title>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
-    :root { --primary: #2563eb; --bg: #f1f5f9; --border: #cbd5e1; }
+    :root { --primary: #2563eb; --bg: #f1f5f9; --border: #cbd5e1; --danger: #ef4444; }
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
     
@@ -18,40 +17,52 @@
     .btn { padding: 6px 12px; border: none; border-radius: 6px; background: var(--primary); color: #fff; cursor: pointer; font-size: 14px; font-weight: 600; }
     .btn:active { opacity: 0.8; }
     .btn-outline { background: #fff; color: #333; border: 1px solid var(--border); }
-    .btn-danger { background: #ef4444; }
+    .btn-danger { background: var(--danger); }
 
     /* 主体布局 */
     .main-container { display: flex; flex: 1; overflow: hidden; position: relative; }
     
     /* 左侧画布区 */
-    .canvas-wrapper { flex: 1; overflow: auto; position: relative; background: #e2e8f0; touch-action: none; }
-    .grid-container { position: relative; background-color: #fff; margin: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    
-    /* 网格线背景 */
+    .canvas-wrapper { flex: 1; overflow: auto; position: relative; background: #e2e8f0; touch-action: none; display: flex; justify-content: center; align-items: center; }
+    .grid-container { position: relative; background-color: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     .grid-bg { position: absolute; inset: 0; pointer-events: none; }
     
     /* 绘制的区块 */
-    .block { position: absolute; border: 2px solid transparent; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; font-size: 12px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5); cursor: pointer; transition: box-shadow 0.2s; }
-    .block:hover { border-color: #fff; box-shadow: 0 0 0 2px #000; z-index: 9999 !important; }
-    .block.selected { border-color: #fbbf24; box-shadow: 0 0 0 3px #fbbf24; z-index: 9998 !important; }
-    .block .block-name { font-weight: bold; text-align: center; padding: 0 4px; word-break: break-all; }
+    .block { position: absolute; border: 1px solid rgba(0,0,0,0.2); box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; font-size: 12px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5); cursor: pointer; user-select: none; touch-action: none; }
+    .block:hover { border-color: #fff; }
+    .block.selected { border: 2px solid #fbbf24; box-shadow: 0 0 8px rgba(251, 191, 36, 0.8); z-index: 9998 !important; }
+    .block .block-name { font-weight: bold; text-align: center; padding: 0 4px; word-break: break-all; pointer-events: none; }
+    .block.hidden-layer { display: none; }
+    .block.locked-layer { pointer-events: none; opacity: 0.6; }
+    
+    /* 缩放拖拽手柄 */
+    .handle { position: absolute; width: 20px; height: 20px; background: #fff; border: 2px solid #fbbf24; border-radius: 50%; z-index: 9999; display: none; touch-action: none; }
+    .block.selected .handle { display: block; }
+    .handle-tl { top: -10px; left: -10px; cursor: nwse-resize; }
+    .handle-tr { top: -10px; right: -10px; cursor: nesw-resize; }
+    .handle-bl { bottom: -10px; left: -10px; cursor: nesw-resize; }
+    .handle-br { bottom: -10px; right: -10px; cursor: nwse-resize; }
 
     /* 画图时的预览框 */
     .drawing-preview { position: absolute; background: rgba(37, 99, 235, 0.3); border: 2px dashed var(--primary); pointer-events: none; z-index: 10000; }
 
     /* 右侧侧边栏（图例） */
-    .sidebar { width: 300px; background: #fff; border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
-    .sidebar-header { padding: 15px; font-weight: bold; border-bottom: 1px solid var(--border); background: #f8fafc; }
-    .legend-item { padding: 10px 15px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 10px; cursor: pointer; transition: background 0.2s; }
+    .sidebar { width: 320px; background: #fff; border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+    .sidebar-header { padding: 15px; font-weight: bold; border-bottom: 1px solid var(--border); background: #f8fafc; position: sticky; top: 0; z-index: 10;}
+    .legend-item { padding: 10px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 8px; cursor: pointer; transition: background 0.2s; }
     .legend-item:hover { background: #f1f5f9; }
     .legend-item.active { background: #e0f2fe; border-left: 4px solid var(--primary); }
-    .color-box { width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.2); }
-    .legend-info { flex: 1; }
-    .legend-title { font-size: 14px; font-weight: bold; margin-bottom: 2px; }
-    .legend-desc { font-size: 12px; color: #64748b; line-height: 1.3; }
-    .legend-area { font-size: 11px; color: var(--primary); margin-top: 4px; }
-    .legend-actions { display: flex; flex-direction: column; gap: 4px; }
-    .btn-mini { padding: 2px 6px; font-size: 11px; border-radius: 4px; border: 1px solid var(--border); background: #fff; cursor: pointer; }
+    .color-box { width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.2); margin-top: 2px;}
+    .legend-info { flex: 1; min-width: 0; }
+    .legend-title { font-size: 14px; font-weight: bold; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .legend-desc { font-size: 12px; color: #64748b; line-height: 1.3; margin-bottom: 2px; }
+    .legend-area { font-size: 11px; color: var(--primary); }
+    
+    /* 图例操作按钮组 */
+    .legend-actions { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; width: 80px;}
+    .icon-btn { width: 22px; height: 22px; display: flex; justify-content: center; align-items: center; border: 1px solid var(--border); background: #fff; border-radius: 4px; cursor: pointer; font-size: 12px; padding: 0;}
+    .icon-btn.active { background: #e0f2fe; border-color: var(--primary); }
+    .icon-btn.danger { color: var(--danger); }
 
     /* 弹窗 */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 99999; }
@@ -60,7 +71,7 @@
     .modal h3 { margin-bottom: 15px; font-size: 18px; }
     .form-group { margin-bottom: 12px; }
     .form-group label { display: block; font-size: 13px; color: #64748b; margin-bottom: 4px; }
-    .form-group input[type="text"], .form-group textarea { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 14px; }
+    .form-group input[type="text"], .form-group input[type="number"], .form-group textarea { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 14px; }
     .form-group input[type="color"] { width: 100%; height: 40px; padding: 0; border: none; cursor: pointer; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
@@ -83,16 +94,17 @@
         <button class="btn btn-outline" onclick="rebuildGrid()">生成</button>
     </div>
     <div class="tool-group">
-        <span>比例:</span>
-        <span>1格=</span>
+        <span>比例: 1格=</span>
         <input type="number" id="scale-m" value="1" min="0.1" step="0.1" style="width: 60px;">
         <span>米</span>
     </div>
     <div class="tool-group" style="margin-left: auto;">
         <button class="btn btn-outline" id="btn-undo" onclick="undo()" disabled>↩️ 撤销</button>
         <button class="btn btn-outline" id="btn-redo" onclick="redo()" disabled>↪️ 重做</button>
-        <button class="btn btn-outline" onclick="exportPNG()">📸 导出图片</button>
-        <button class="btn btn-outline" onclick="exportJSON()">💾 导出JSON</button>
+        <button class="btn btn-outline" onclick="document.getElementById('import-file').click()">📂 导入</button>
+        <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importJSON(event)">
+        <button class="btn btn-outline" onclick="exportPNG()">📸 图片</button>
+        <button class="btn btn-outline" onclick="exportJSON()">💾 导出</button>
         <button class="btn btn-danger" onclick="clearAll()">清空</button>
     </div>
 </div>
@@ -102,67 +114,71 @@
     <div class="canvas-wrapper" id="canvas-wrapper">
         <div class="grid-container" id="grid-container">
             <div class="grid-bg" id="grid-bg"></div>
-            <!-- 动态生成的区块将放在这里 -->
             <div class="drawing-preview" id="drawing-preview" style="display: none;"></div>
         </div>
     </div>
 
     <!-- 右侧图例 -->
     <div class="sidebar">
-        <div class="sidebar-header">图例与区块说明 (点击可定位)</div>
-        <div id="legend-list" style="flex:1; overflow-y:auto;">
-            <!-- 动态生成 -->
-        </div>
+        <div class="sidebar-header">图例与图层控制</div>
+        <div id="legend-list" style="flex:1; overflow-y:auto;"></div>
     </div>
 </div>
 
 <!-- 编辑弹窗 -->
 <div class="modal-overlay" id="edit-modal">
     <div class="modal">
-        <h3 id="modal-title">新建区块</h3>
+        <h3 id="modal-title">编辑区块</h3>
         <div class="form-group">
             <label>功能名称</label>
             <input type="text" id="block-name" placeholder="如：异常件托盘">
         </div>
         <div class="form-group">
             <label>详细描述 (选填)</label>
-            <textarea id="block-desc" rows="3" placeholder="如：存放滞留、改约件"></textarea>
+            <textarea id="block-desc" rows="2" placeholder="描述功能..."></textarea>
         </div>
         <div class="form-group">
             <label>区块颜色</label>
             <input type="color" id="block-color" value="#2563eb">
         </div>
+        <div class="form-group">
+            <label>层级 Z-Index (数值越大越靠上)</label>
+            <input type="number" id="block-z" value="1" step="1">
+        </div>
         <div class="modal-actions">
             <button class="btn btn-outline" onclick="closeModal()">取消</button>
-            <button class="btn" id="btn-save-block" onclick="saveBlock()">保存</button>
+            <button class="btn" onclick="saveBlock()">保存</button>
         </div>
     </div>
 </div>
 
 <script>
 // ========== 全局状态 ==========
-let cellSize = 30; // 默认每格 30px
+let cellSize = 30;
 let gridCols = 20;
 let gridRows = 15;
-let blocks = []; // 存储所有区块数据
-let historyStack = []; // 历史快照
-let historyIndex = -1; // 当前历史位置
-let isDrawing = false;
-let startX = 0, startY = 0;
-let currentPreview = null;
+let blocks = []; 
+let historyStack = [];
+let historyIndex = -1;
 let editingBlockId = null;
-let autoSaveKey = 'yz_layout_autosave_v1';
+const autoSaveKey = 'yz_layout_v2_autosave';
 
-// DOM 元素
+// 交互状态
+let actionMode = null; // 'draw', 'move', 'resize'
+let currentResizeDir = '';
+let startX = 0, startY = 0; // 鼠标/手指起始坐标（像素）
+let startGridX = 0, startGridY = 0; // 起始网格坐标
+let tempBlockData = null; // 暂存正在操作的数据
+let activeBlockId = null; // 当前选中的区块
+
 const wrapper = document.getElementById('canvas-wrapper');
 const container = document.getElementById('grid-container');
 const gridBg = document.getElementById('grid-bg');
 const previewBox = document.getElementById('drawing-preview');
 const legendList = document.getElementById('legend-list');
 
-// ========== 初始化与网格 ==========
+// ========== 初始化 ==========
 function init() {
-    // 尝试加载自动保存数据
     const saved = localStorage.getItem(autoSaveKey);
     if (saved) {
         try {
@@ -173,147 +189,92 @@ function init() {
             document.getElementById('grid-cols').value = gridCols;
             document.getElementById('grid-rows').value = gridRows;
             document.getElementById('scale-m').value = data.scale || 1;
-        } catch(e) { console.error("读取自动保存失败", e); }
+        } catch(e) {}
     }
-    
     rebuildGrid();
-    pushHistory(true); // 初始化历史记录
+    pushHistory(true);
     
-    // 绑定画布事件
-    container.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('pointermove', onPointerMove);
-    document.addEventListener('pointerup', onPointerUp);
+    // 统一绑定事件
+    container.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp);
 }
 
+// ========== 网格渲染 ==========
 function rebuildGrid() {
     gridCols = parseInt(document.getElementById('grid-cols').value) || 20;
     gridRows = parseInt(document.getElementById('grid-rows').value) || 15;
     
-    // 计算画布大小，如果手机屏幕小，自动缩小格子
     const maxW = wrapper.clientWidth - 40;
-    cellSize = Math.min(30, Math.floor(maxW / gridCols));
-    if(cellSize < 10) cellSize = 10; // 最小格子限制
+    const maxH = wrapper.clientHeight - 40;
+    // 自适应格子大小
+    cellSize = Math.min(40, Math.floor(maxW / gridCols), Math.floor(maxH / gridRows));
+    if(cellSize < 10) cellSize = 10;
 
     container.style.width = (gridCols * cellSize) + 'px';
     container.style.height = (gridRows * cellSize) + 'px';
 
-    // 绘制网格背景 (使用 CSS 渐变)
-    gridBg.style.backgroundImage = `
-        linear-gradient(to right, #e2e8f0 1px, transparent 1px),
-        linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)
-    `;
+    gridBg.style.backgroundImage = `linear-gradient(to right, #e2e8f0 1px, transparent 1px), linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)`;
     gridBg.style.backgroundSize = `${cellSize}px ${cellSize}px`;
 
     renderBlocks();
     renderLegend();
 }
 
-// ========== 绘制交互 ==========
+// ========== 坐标转换 ==========
 function getGridPos(e) {
     const rect = container.getBoundingClientRect();
-    // 计算相对容器的坐标，并转换为格子索引
-    let x = Math.floor((e.clientX - rect.left) / cellSize);
-    let y = Math.floor((e.clientY - rect.top) / cellSize);
-    // 边界限制
-    x = Math.max(0, Math.min(x, gridCols - 1));
-    y = Math.max(0, Math.min(y, gridRows - 1));
+    let x = Math.round((e.clientX - rect.left) / cellSize);
+    let y = Math.round((e.clientY - rect.top) / cellSize);
+    x = Math.max(0, Math.min(x, gridCols));
+    y = Math.max(0, Math.min(y, gridRows));
     return { x, y };
 }
 
-function onPointerDown(e) {
-    if (e.target.closest('.block')) return; // 点击已有区块不触发画图
-    if (e.button !== 0 && e.pointerType === 'mouse') return; // 只允许左键
-
-    isDrawing = true;
-    const pos = getGridPos(e);
-    startX = pos.x;
-    startY = pos.y;
-
-    // 显示预览框
-    previewBox.style.display = 'block';
-    updatePreviewBox(startX, startY, startX, startY);
-    
-    // 清除选中状态
-    document.querySelectorAll('.block').forEach(b => b.classList.remove('selected'));
-    document.querySelectorAll('.legend-item').forEach(l => l.classList.remove('active'));
-}
-
-function onPointerMove(e) {
-    if (!isDrawing) return;
-    const pos = getGridPos(e);
-    
-    // 计算当前矩形框（支持反向拖拽）
-    const minX = Math.min(startX, pos.x);
-    const minY = Math.min(startY, pos.y);
-    const maxX = Math.max(startX, pos.x);
-    const maxY = Math.max(startY, pos.y);
-    
-    updatePreviewBox(minX, minY, maxX, maxY);
-}
-
-function onPointerUp(e) {
-    if (!isDrawing) return;
-    isDrawing = false;
-    previewBox.style.display = 'none';
-
-    const pos = getGridPos(e);
-    const minX = Math.min(startX, pos.x);
-    const minY = Math.min(startY, pos.y);
-    const maxX = Math.max(startX, pos.x);
-    const maxY = Math.max(startY, pos.y);
-
-    const w = maxX - minX + 1;
-    const h = maxY - minY + 1;
-
-    // 如果只是点击了一下，没有拖拽出面积，忽略
-    if (w <= 1 && h <= 1 && startX === pos.x && startY === pos.y) {
-        // 如果点击的是空白区域，取消所有选中
-        renderLegend();
-        return;
-    }
-
-    // 弹出编辑框
-    editingBlockId = null; // 新建
-    document.getElementById('modal-title').textContent = '新建区块';
-    document.getElementById('block-name').value = '';
-    document.getElementById('block-desc').value = '';
-    document.getElementById('block-color').value = getRandomColor();
-    
-    // 临时保存当前画的框尺寸
-    window.tempBlock = { x: minX, y: minY, w, h };
-    
-    document.getElementById('edit-modal').classList.add('show');
-}
-
-function updatePreviewBox(x1, y1, x2, y2) {
-    previewBox.style.left = (x1 * cellSize) + 'px';
-    previewBox.style.top = (y1 * cellSize) + 'px';
-    previewBox.style.width = ((x2 - x1 + 1) * cellSize) + 'px';
-    previewBox.style.height = ((y2 - y1 + 1) * cellSize) + 'px';
-}
-
-// ========== 区块与图例渲染 ==========
+// ========== 画布与区块渲染 ==========
 function renderBlocks() {
-    // 清除旧的区块
     document.querySelectorAll('.block').forEach(b => b.remove());
     
-    // 按层级排序后渲染，保证层级高的在后面
-    blocks.forEach(b => {
+    // 按 z-index 升序渲染（越大的越后面渲染，也就越在上面）
+    const sortedBlocks = blocks.slice().sort((a, b) => (a.zIndex || 1) - (b.zIndex || 1));
+
+    sortedBlocks.forEach(b => {
         const div = document.createElement('div');
         div.className = 'block';
         div.id = 'block-' + b.id;
+        if (!b.isVisible) div.classList.add('hidden-layer');
+        if (b.isLocked) div.classList.add('locked-layer');
+        if (b.id === activeBlockId) div.classList.add('selected');
+
         div.style.left = (b.x * cellSize) + 'px';
         div.style.top = (b.y * cellSize) + 'px';
         div.style.width = (b.w * cellSize) + 'px';
         div.style.height = (b.h * cellSize) + 'px';
         div.style.backgroundColor = b.color;
-        div.style.zIndex = b.z || 1; // 默认层级 1
-        div.innerHTML = `<div class="block-name">${b.name || '未命名'}</div>`;
+        div.style.zIndex = b.zIndex || 1;
         
-        // 点击选中区块
+        div.innerHTML = `<div class="block-name">${b.name}</div>`;
+
+        // 添加四个角的缩放手柄
+        if(b.id === activeBlockId && !b.isLocked && b.isVisible) {
+            ['tl', 'tr', 'bl', 'br'].forEach(dir => {
+                const handle = document.createElement('div');
+                handle.className = `handle handle-${dir}`;
+                handle.dataset.dir = dir;
+                handle.dataset.id = b.id;
+                handle.addEventListener('pointerdown', handleResizeStart);
+                div.appendChild(handle);
+            });
+        }
+
+        // 拖拽移动事件
         div.addEventListener('pointerdown', (e) => {
-            e.stopPropagation(); // 阻止画新图
+            if (b.isLocked || !b.isVisible) return;
+            if (e.target.classList.contains('handle')) return; // 点击的是手柄
+            
+            e.stopPropagation(); // 阻止新建画图
             selectBlock(b.id);
+            startMove(e, b);
         });
 
         container.appendChild(div);
@@ -321,117 +282,287 @@ function renderBlocks() {
 }
 
 function renderLegend() {
-    legendList.innerHTML = blocks.slice().sort((a, b) => (b.z || 1) - (a.z || 1)).map(b => {
+    // 按层级从大到小（从上到下）排序图例
+    const sorted = blocks.slice().sort((a, b) => (b.zIndex || 1) - (a.zIndex || 1));
+    
+    legendList.innerHTML = sorted.map(b => {
         const scale = parseFloat(document.getElementById('scale-m').value) || 1;
         const area = (b.w * scale) * (b.h * scale);
-        const isActive = document.querySelector(`.block[id="block-${b.id}"]`)?.classList.contains('selected');
+        const isActive = b.id === activeBlockId;
         
         return `
         <div class="legend-item ${isActive ? 'active' : ''}" id="legend-${b.id}" onclick="selectBlock('${b.id}')">
             <div class="color-box" style="background:${b.color}"></div>
             <div class="legend-info">
-                <div class="legend-title">${b.name || '未命名'}</div>
+                <div class="legend-title">${b.name}</div>
                 ${b.desc ? `<div class="legend-desc">${b.desc}</div>` : ''}
-                <div class="legend-area">尺寸: ${b.w}×${b.h}格 ≈ ${area.toFixed(1)}㎡</div>
+                <div class="legend-area">${b.w}×${b.h}格 ≈ ${area.toFixed(1)}㎡ | 层级:${b.zIndex||1}</div>
             </div>
             <div class="legend-actions">
-                <button class="btn-mini" onclick="event.stopPropagation(); editBlock('${b.id}')">编辑</button>
-                <button class="btn-mini" style="color:red;" onclick="event.stopPropagation(); deleteBlock('${b.id}')">删除</button>
-                <button class="btn-mini" onclick="event.stopPropagation(); bringToFront('${b.id}')">置顶</button>
+                <button class="icon-btn ${b.isVisible ? 'active' : ''}" onclick="toggleVis('${b.id}', event)">${b.isVisible ? '👁️' : '👁️‍🗨️'}</button>
+                <button class="icon-btn ${b.isLocked ? 'active' : ''}" onclick="toggleLock('${b.id}', event)">${b.isLocked ? '🔒' : '🔓'}</button>
+                <button class="icon-btn" onclick="moveZ('${b.id}', 1, event)">⬆️</button>
+                <button class="icon-btn" onclick="moveZ('${b.id}', -1, event)">⬇️</button>
+                <button class="icon-btn" onclick="openEditModal('${b.id}', event)">✏️</button>
+                <button class="icon-btn danger" onclick="deleteBlock('${b.id}', event)">🗑️</button>
             </div>
         </div>
         `;
     }).join('');
 }
 
-function selectBlock(id) {
-    // 清除所有选中
-    document.querySelectorAll('.block').forEach(b => b.classList.remove('selected'));
-    document.querySelectorAll('.legend-item').forEach(l => l.classList.remove('active'));
+// ========== 交互事件流 ==========
+
+// 1. 在空白处按下：准备新建
+function handlePointerDown(e) {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    // 如果点到了区块或者手柄，在区块自己的事件里已经处理了
+    if (e.target.closest('.block') || e.target.classList.contains('handle')) return;
+
+    selectBlock(null); // 取消选中
+    actionMode = 'draw';
+    const pos = getGridPos(e);
+    startGridX = pos.x;
+    startGridY = pos.y;
     
-    // 选中目标
-    const blockEl = document.getElementById('block-' + id);
-    const legendEl = document.getElementById('legend-' + id);
-    if (blockEl) blockEl.classList.add('selected');
-    if (legendEl) {
-        legendEl.classList.add('active');
-        legendEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    previewBox.style.display = 'block';
+    updatePreviewBox(startGridX, startGridY, startGridX, startGridY);
+}
+
+// 2. 拖拽移动开始
+function startMove(e, b) {
+    actionMode = 'move';
+    activeBlockId = b.id;
+    tempBlockData = { ...b };
+    startX = e.clientX;
+    startY = e.clientY;
+}
+
+// 3. 缩放开始
+function handleResizeStart(e) {
+    e.stopPropagation();
+    const id = e.target.dataset.id;
+    const dir = e.target.dataset.dir;
+    const b = blocks.find(x => x.id === id);
+    if(!b) return;
+
+    actionMode = 'resize';
+    currentResizeDir = dir;
+    activeBlockId = id;
+    tempBlockData = { ...b };
+    startX = e.clientX;
+    startY = e.clientY;
+}
+
+// 4. 统一处理移动
+function handlePointerMove(e) {
+    if (!actionMode) return;
+
+    if (actionMode === 'draw') {
+        const pos = getGridPos(e);
+        updatePreviewBox(Math.min(startGridX, pos.x), Math.min(startGridY, pos.y), Math.max(startGridX, pos.x), Math.max(startGridY, pos.y));
+    } 
+    else if (actionMode === 'move') {
+        const dx = Math.round((e.clientX - startX) / cellSize);
+        const dy = Math.round((e.clientY - startY) / cellSize);
+        
+        let newX = tempBlockData.x + dx;
+        let newY = tempBlockData.y + dy;
+        
+        // 边界限制
+        newX = Math.max(0, Math.min(newX, gridCols - tempBlockData.w));
+        newY = Math.max(0, Math.min(newY, gridRows - tempBlockData.h));
+
+        const el = document.getElementById('block-' + activeBlockId);
+        if(el) {
+            el.style.left = (newX * cellSize) + 'px';
+            el.style.top = (newY * cellSize) + 'px';
+        }
+    }
+    else if (actionMode === 'resize') {
+        const dx = Math.round((e.clientX - startX) / cellSize);
+        const dy = Math.round((e.clientY - startY) / cellSize);
+        
+        let { x, y, w, h } = tempBlockData;
+        const el = document.getElementById('block-' + activeBlockId);
+
+        if (currentResizeDir.includes('r')) {
+            w = Math.max(1, Math.min(w + dx, gridCols - x));
+        }
+        if (currentResizeDir.includes('b')) {
+            h = Math.max(1, Math.min(h + dy, gridRows - y));
+        }
+        if (currentResizeDir.includes('l')) {
+            const possibleW = w - dx;
+            if (possibleW >= 1 && x + dx >= 0) {
+                x += dx; w = possibleW;
+            }
+        }
+        if (currentResizeDir.includes('t')) {
+            const possibleH = h - dy;
+            if (possibleH >= 1 && y + dy >= 0) {
+                y += dy; h = possibleH;
+            }
+        }
+
+        if(el) {
+            el.style.left = (x * cellSize) + 'px';
+            el.style.top = (y * cellSize) + 'px';
+            el.style.width = (w * cellSize) + 'px';
+            el.style.height = (h * cellSize) + 'px';
+        }
+        tempBlockData = { ...tempBlockData, x, y, w, h };
     }
 }
 
-// ========== 弹窗与数据操作 ==========
+// 5. 松手结束
+function handlePointerUp(e) {
+    if (!actionMode) return;
+
+    if (actionMode === 'draw') {
+        previewBox.style.display = 'none';
+        const pos = getGridPos(e);
+        const x = Math.min(startGridX, pos.x);
+        const y = Math.min(startGridY, pos.y);
+        const w = Math.abs(pos.x - startGridX);
+        const h = Math.abs(pos.y - startGridY);
+
+        if (w > 0 && h > 0) {
+            openEditModal(null, null, { x, y, w, h });
+        }
+    } 
+    else if (actionMode === 'move' || actionMode === 'resize') {
+        const b = blocks.find(x => x.id === activeBlockId);
+        if (b && tempBlockData) {
+            // 提交修改结果
+            b.x = tempBlockData.x;
+            b.y = tempBlockData.y;
+            b.w = tempBlockData.w;
+            b.h = tempBlockData.h;
+            saveToHistory();
+            renderBlocks();
+            renderLegend();
+        }
+    }
+    
+    actionMode = null;
+    tempBlockData = null;
+    currentResizeDir = '';
+}
+
+function updatePreviewBox(x1, y1, x2, y2) {
+    previewBox.style.left = (x1 * cellSize) + 'px';
+    previewBox.style.top = (y1 * cellSize) + 'px';
+    previewBox.style.width = ((x2 - x1) * cellSize) + 'px';
+    previewBox.style.height = ((y2 - y1) * cellSize) + 'px';
+}
+
+// ========== 基础操作 ==========
+window.selectBlock = function(id) {
+    activeBlockId = id;
+    renderBlocks();
+    renderLegend();
+    if (id) {
+        const el = document.getElementById('legend-' + id);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+};
+
+window.toggleVis = function(id, e) {
+    e.stopPropagation();
+    const b = blocks.find(x => x.id === id);
+    if(b) { b.isVisible = !b.isVisible; saveToHistory(); renderBlocks(); renderLegend(); }
+};
+
+window.toggleLock = function(id, e) {
+    e.stopPropagation();
+    const b = blocks.find(x => x.id === id);
+    if(b) { b.isLocked = !b.isLocked; saveToHistory(); renderBlocks(); renderLegend(); }
+};
+
+window.moveZ = function(id, dir, e) {
+    e.stopPropagation();
+    const b = blocks.find(x => x.id === id);
+    if(!b) return;
+    // 简单粗暴地加减层级，最终渲染时会按大小排序
+    b.zIndex = (b.zIndex || 1) + dir;
+    saveToHistory(); renderBlocks(); renderLegend();
+};
+
+window.openEditModal = function(id, e, newRect = null) {
+    if(e) e.stopPropagation();
+    editingBlockId = id;
+    
+    if (id) {
+        // 编辑已有
+        const b = blocks.find(x => x.id === id);
+        document.getElementById('modal-title').textContent = '编辑区块';
+        document.getElementById('block-name').value = b.name;
+        document.getElementById('block-desc').value = b.desc || '';
+        document.getElementById('block-color').value = b.color;
+        document.getElementById('block-z').value = b.zIndex || 1;
+    } else {
+        // 新建
+        document.getElementById('modal-title').textContent = '新建区块';
+        document.getElementById('block-name').value = '';
+        document.getElementById('block-desc').value = '';
+        document.getElementById('block-color').value = '#2563eb';
+        // 默认新图层在最上面
+        const maxZ = blocks.length > 0 ? Math.max(...blocks.map(x => x.zIndex || 1)) : 0;
+        document.getElementById('block-z').value = maxZ + 1;
+        tempBlockData = newRect; // 保存画出来的坐标
+    }
+    document.getElementById('edit-modal').classList.add('show');
+};
+
 window.closeModal = function() {
     document.getElementById('edit-modal').classList.remove('show');
-    window.tempBlock = null;
-}
+};
 
 window.saveBlock = function() {
     const name = document.getElementById('block-name').value.trim();
+    if (!name) return alert('请输入名称');
     const desc = document.getElementById('block-desc').value.trim();
     const color = document.getElementById('block-color').value;
-    
-    if (!name) { alert('请输入功能名称'); return; }
+    const zIndex = parseInt(document.getElementById('block-z').value) || 1;
 
     if (editingBlockId) {
-        // 修改已有
+        // 更新
         const b = blocks.find(x => x.id === editingBlockId);
-        if (b) { b.name = name; b.desc = desc; b.color = color; }
-    } else if (window.tempBlock) {
-        // 新建
+        if(b) { b.name = name; b.desc = desc; b.color = color; b.zIndex = zIndex; }
+    } else if (tempBlockData) {
+        // 新增
+        const newId = generateId();
         blocks.push({
-            id: generateId(),
-            x: window.tempBlock.x,
-            y: window.tempBlock.y,
-            w: window.tempBlock.w,
-            h: window.tempBlock.h,
-            name, desc, color,
-            z: blocks.length + 1 // 新建的层级最高
+            id: newId, name, desc, color, zIndex,
+            x: tempBlockData.x, y: tempBlockData.y, w: tempBlockData.w, h: tempBlockData.h,
+            isVisible: true, isLocked: false
         });
+        activeBlockId = newId;
     }
     
     closeModal();
     saveToHistory();
     renderBlocks();
     renderLegend();
-}
+};
 
-window.editBlock = function(id) {
-    const b = blocks.find(x => x.id === id);
-    if (!b) return;
-    editingBlockId = id;
-    document.getElementById('modal-title').textContent = '编辑区块';
-    document.getElementById('block-name').value = b.name;
-    document.getElementById('block-desc').value = b.desc || '';
-    document.getElementById('block-color').value = b.color;
-    document.getElementById('edit-modal').classList.add('show');
-}
-
-window.deleteBlock = function(id) {
-    if (!confirm('确定删除该区块吗？')) return;
+window.deleteBlock = function(id, e) {
+    if(e) e.stopPropagation();
+    if (!confirm('确定删除？')) return;
     blocks = blocks.filter(x => x.id !== id);
-    saveToHistory();
-    renderBlocks();
-    renderLegend();
-}
+    if (activeBlockId === id) activeBlockId = null;
+    saveToHistory(); renderBlocks(); renderLegend();
+};
 
-window.bringToFront = function(id) {
-    const b = blocks.find(x => x.id === id);
-    if (!b) return;
-    const maxZ = Math.max(...blocks.map(x => x.z || 1));
-    b.z = maxZ + 1;
-    saveToHistory();
-    renderBlocks();
-    renderLegend();
-}
-
-// ========== 历史记录 (撤销/重做) ==========
+// ========== 历史记录 ==========
 function pushHistory(isInit = false) {
     if (!isInit && historyIndex < historyStack.length - 1) {
         historyStack = historyStack.slice(0, historyIndex + 1);
     }
-    const snapshot = JSON.stringify({ gridCols, gridRows, blocks });
-    if (historyStack[historyIndex] === snapshot) return; // 没变就不记录
-    historyStack.push(snapshot);
+    const state = JSON.stringify({ gridCols, gridRows, blocks });
+    if (historyStack[historyIndex] === state) return;
+    historyStack.push(state);
     historyIndex++;
     updateHistoryButtons();
 }
@@ -462,6 +593,7 @@ function applySnapshot(snapshotStr) {
     blocks = data.blocks;
     document.getElementById('grid-cols').value = gridCols;
     document.getElementById('grid-rows').value = gridRows;
+    activeBlockId = null;
     rebuildGrid();
     updateHistoryButtons();
     localStorage.setItem(autoSaveKey, snapshotStr);
@@ -472,42 +604,67 @@ function updateHistoryButtons() {
     document.getElementById('btn-redo').disabled = historyIndex >= historyStack.length - 1;
 }
 
-// ========== 导出与清空 ==========
+// ========== 导入导出 ==========
 window.exportPNG = function() {
-    // 移除所有选中状态和预览框
-    document.querySelectorAll('.block').forEach(b => b.classList.remove('selected'));
-    if (historyIndex >= 0) pushHistory(); // 保存当前状态
-
+    activeBlockId = null;
+    renderBlocks();
+    pushHistory();
     html2canvas(container, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
-        const link = document.createElement('a');
-        link.download = '驿站平面布局图.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
+        const a = document.createElement('a');
+        a.download = '驿站平面布局图.png';
+        a.href = canvas.toDataURL('image/png');
+        a.click();
     });
 }
 
 window.exportJSON = function() {
     const scale = document.getElementById('scale-m').value;
-    const data = {
-        gridCols, gridRows, scale,
-        blocks: blocks.map(b => ({
-            name: b.name, desc: b.desc,
-            x: b.x, y: b.y, w: b.w, h: b.h,
-            area: (b.w * scale) * (b.h * scale) // 计算实际面积
-        }))
-    };
+    const data = { gridCols, gridRows, scale, blocks };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
+    a.href = URL.createObjectURL(blob);
     a.download = '驿站布局数据.json';
     a.click();
-    URL.revokeObjectURL(url);
+}
+
+window.importJSON = function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        try {
+            const data = JSON.parse(evt.target.result);
+            if (data.gridCols && data.blocks) {
+                gridCols = data.gridCols;
+                gridRows = data.gridRows;
+                blocks = data.blocks;
+                document.getElementById('grid-cols').value = gridCols;
+                document.getElementById('grid-rows').value = gridRows;
+                document.getElementById('scale-m').value = data.scale || 1;
+                
+                activeBlockId = null;
+                historyStack = []; // 导入后清空历史
+                historyIndex = -1;
+                
+                rebuildGrid();
+                pushHistory(true);
+                saveToHistory();
+                alert('导入成功！');
+            } else {
+                alert('文件格式不正确');
+            }
+        } catch(err) {
+            alert('解析失败: ' + err.message);
+        }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // 允许重复选同一文件
 }
 
 window.clearAll = function() {
-    if (!confirm('确定清空所有区块并重置画布吗？')) return;
+    if (!confirm('确定清空所有区块吗？')) return;
     blocks = [];
+    activeBlockId = null;
     historyStack = [];
     historyIndex = -1;
     localStorage.removeItem(autoSaveKey);
@@ -515,17 +672,8 @@ window.clearAll = function() {
     pushHistory(true);
 }
 
-// ========== 辅助工具 ==========
 function generateId() { return Math.random().toString(36).substr(2, 9); }
-function getRandomColor() {
-    const colors = ['#2563eb', '#059669', '#dc2626', '#d97706', '#7c3aed', '#db2777', '#0891b2', '#4b5563'];
-    return colors[Math.floor(Math.random() * colors.length)];
-}
-
-// 监听比例尺输入，实时更新图例面积
 document.getElementById('scale-m').addEventListener('input', renderLegend);
-
-// 启动
 window.onload = init;
 </script>
 </body>
